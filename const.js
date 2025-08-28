@@ -16,5 +16,8 @@ export const audienceCSV = "audience.csv";
 // audience user csv file name
 export const audienceUserCSV = "audience_user.csv";
 
+// temporary csv file name
+export const audienceUserTempCSV = "audience_user_temp.csv";
+
 // import csv file name
 export const importCSV = "import.csv";

@@ -8,6 +8,7 @@ import {
   importCSV,
   targetAudienceUserInDB,
   usersPerAudience,
+  audienceUserTempCSV
 } from "./const.js";
 
 // remove existing files
@@ -27,6 +28,10 @@ const audienceCSVStream = fs.createWriteStream(audienceCSV, {
   flags: "a",
 });
 const audienceUserCSVStream = fs.createWriteStream(audienceUserCSV, {
+  encoding: "utf8",
+  flags: "a",
+});
+const audienceUserTempCSVStream = fs.createWriteStream(audienceUserTempCSV, {
   encoding: "utf8",
   flags: "a",
 });
@@ -51,14 +56,17 @@ for (let i = 0; i < totalUserCount; i++) {
   const userId = uuidv4();
   audienceUserCSVStream.write(`${audienceId},${userId}\n`);
   if (audienceId === audienceCount && targetAudienceUserInDBCount < targetAudienceUserInDB) {
-    importCSVStream.write(`${audienceId},${userId}\n`);
+    importCSVStream.write(`${userId}\n`);
+    audienceUserTempCSVStream.write(`${audienceId},${userId}\n`);
     targetAudienceUserInDBCount++;
   }
 }
 audienceUserCSVStream.end();
 
 while (targetAudienceUserInDBCount < usersPerAudience) {
-  importCSVStream.write(`${audienceCount},${uuidv4()}\n`);
+  importCSVStream.write(`${uuidv4()}\n`);
+  audienceUserTempCSVStream.write(`${audienceCount},${uuidv4()}\n`);
   targetAudienceUserInDBCount++;
 }
 importCSVStream.end();
+audienceUserTempCSVStream.end();
