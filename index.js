@@ -1,44 +1,64 @@
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
+import {
+  audienceCount,
+  totalUserCount,
+  audienceCSV,
+  audienceUserCSV,
+  importCSV,
+  targetAudienceUserInDB,
+  usersPerAudience,
+} from "./const.js";
 
-const targetSQL = 'init.sql';
-const targetCSV = 'import.csv';
-const fillingAudienceCount = 10;
-const fillingAudienceUserCount = 1_000_000;
-
-// cleanup targetSQL
-if (fs.existsSync(targetSQL)) {
-    fs.unlinkSync(targetSQL);
+// remove existing files
+if (fs.existsSync(audienceCSV)) {
+  fs.unlinkSync(audienceCSV);
+}
+if (fs.existsSync(audienceUserCSV)) {
+  fs.unlinkSync(audienceUserCSV);
+}
+if (fs.existsSync(importCSV)) {
+  fs.unlinkSync(importCSV);
 }
 
-// cleanup targetCSV
-if (fs.existsSync(targetCSV)) {
-    fs.unlinkSync(targetCSV);
-}
+// file streams
+const audienceCSVStream = fs.createWriteStream(audienceCSV, {
+  encoding: "utf8",
+  flags: "a",
+});
+const audienceUserCSVStream = fs.createWriteStream(audienceUserCSV, {
+  encoding: "utf8",
+  flags: "a",
+});
+const importCSVStream = fs.createWriteStream(importCSV, {
+  encoding: "utf8",
+  flags: "a",
+});
 
-// create audiences
-const audienceNames = [];
-for (let i = 1; i <= fillingAudienceCount; i++) {
-    const audience_name = i === fillingAudienceCount ? 'target_audience' : `filling_audience_${i}`;
-    audienceNames.push(`('${audience_name}')`);
+// write audience CSV
+audienceCSVStream.write(`name\n`);
+for (let i = 1; i <= audienceCount; i++) {
+  audienceCSVStream.write(`audience${i}\n`);
 }
-const audienceSql = `INSERT INTO svc_lab_audiences ("name") VALUES\n${audienceNames.join(",\n")};\n`;
-fs.appendFileSync(targetSQL, audienceSql, "utf8");
+audienceCSVStream.end();
 
-// Only one INSERT INTO for all rows to accelerate import speed
-const allRows = [], importCSVRows = ['header'];
-for (let userIdx = 0; userIdx < fillingAudienceUserCount; userIdx++) {
-    const audienceId = (userIdx % fillingAudienceCount) + 1;
-    const userId = uuidv4();
-    allRows.push(`(${audienceId}, '${userId}')`);
-    if (userIdx % (fillingAudienceCount * 2) === fillingAudienceCount - 1) {
-        importCSVRows.push(`${userId}`);
-    }
+// write audience user CSV
+audienceUserCSVStream.write(`audienceId,distinct_id\n`);
+importCSVStream.write(`audienceId,distinct_id\n`);
+let targetAudienceUserInDBCount = 0;
+for (let i = 0; i < totalUserCount; i++) {
+  const audienceId = (i % audienceCount) + 1;
+  const userId = uuidv4();
+  audienceUserCSVStream.write(`${audienceId},${userId}\n`);
+  if (audienceId === audienceCount && targetAudienceUserInDBCount < targetAudienceUserInDB) {
+    importCSVStream.write(`${audienceId},${userId}\n`);
+    targetAudienceUserInDBCount++;
+  }
 }
-const sql = `INSERT INTO svc_lab_audience_users ("audienceId", "distinct_id") VALUES\n${allRows.join(",\n")};\n`;
-fs.appendFileSync(targetSQL, sql, "utf8");
+audienceUserCSVStream.end();
 
-for (let i = importCSVRows.length; i <= fillingAudienceUserCount; i++) {
-    importCSVRows.push(`${uuidv4()}`);
+while (targetAudienceUserInDBCount < usersPerAudience) {
+  importCSVStream.write(`${audienceCount},${uuidv4()}\n`);
+  targetAudienceUserInDBCount++;
 }
-fs.writeFileSync(targetCSV, importCSVRows.join("\n"), "utf8");
+importCSVStream.end();
