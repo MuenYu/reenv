@@ -1,4 +1,6 @@
 # re-env
+We assume you have installed `libpq` and set it in $PATH.
+
 Generate and import initial data for testing, including:
 1. 10 million records data in total
 2. 1 million data for the targetAudience
